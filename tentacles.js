@@ -5,6 +5,8 @@ const MAX_LEG_SIZE = 200;
 const LEGS_COUNT = 15;
 const MAX_LIFE = 300;
 const MIN_LIFE = 100;
+const CATCH_DISTANCE = 2;
+const MAX_STAND_TIME = 250;
 
 let mouseX = 0;
 let mouseY = 0;
@@ -19,7 +21,7 @@ display.addEventListener('mousemove', (e) => {
 });
 
 function distanceBetween(x1, y1, x2, y2) {
-    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2, 2));
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
 }
 
 const chasingMouse = (function (){
@@ -30,13 +32,27 @@ const chasingMouse = (function (){
             start: [x, y],
             end: age > life ? newRandomLegEnd(x, y, direction) : end
         }),
-        updatePosition: ({x, y, speed, direction, distance}, {x: mx, y: my}) => ({
+        updateDirection: (x, y, mx, my) => Math.atan2(my - y, mx - x),
+        updateSpeed: distance => distanceToSpeed(distance),
+        updatePosition: ({updateDirection, updateSpeed}, {x, y, speed, direction, distance}, {x: mx, y: my}) => ({
             x: x + Math.cos(direction) * speed,
             y: y + Math.sin(direction) * speed,
-            speed: 1,
-            direction: Math.atan2(my - y, mx - x),
+            speed: updateSpeed(distance),
+            direction: updateDirection(x, y, mx, my, direction),
             distance: distanceBetween(x, y, mx, my)
-        })
+        }),
+        update: (position) => {
+            if (position.distance <= CATCH_DISTANCE) return standingStill;
+            return chasingMouse;
+        }
+    }
+
+    function distanceToSpeed(distance) {
+        if (distance <= 1) return 0;
+        if (distance <= 50) return 1;
+        if (distance <= 100) return 2;
+        if (distance <= 300) return 3;
+        return 4;
     }
 
     function newRandomLegEnd(x, y, direction) {
@@ -61,31 +77,54 @@ const chasingMouse = (function (){
 
 const standingStill = {
     moveLeg: leg => leg,
-    updatePosition: (position, {x: mx, y: my}) => ({
+    updatePosition: (movement, position, {x: mx, y: my}) => ({
         ...position,
+        speed: 0,
+        standTime: typeof position.standTime === 'number' ? position.standTime + 1 : 0,
         distance: distanceBetween(position.x, position.y, mx, my)
-    })
+    }),
+    update: (position, mouse) => {
+        if (mouse.moved && position.distance > CATCH_DISTANCE) return chasingMouse;
+        if (position.standTime > MAX_STAND_TIME) return roaming;
+        return standingStill;
+    }
+}
+
+const roaming = {
+    moveLeg: chasingMouse.moveLeg,
+    updateDirection: (x, y, mx, my, direction) =>
+        Math.random() > 0.99
+            ? Math.PI * 2 * Math.random()
+            : (direction || 0),
+    updateSpeed: () => 1,
+    updatePosition: (movement, position, mouse) => {
+        const base = chasingMouse.updatePosition(movement, position, mouse);
+        return {
+            ...base,
+            x: base.x < 10 ? 10 : base.x > display.width - 10 ? display.width - 10 : base.x,
+            y: base.y < 10 ? 10 : base.y > display.height - 10 ? display.height - 10 : base.y,
+        }
+    },
+    update: (position, mouse) => {
+        if (mouse.moved) return chasingMouse;
+        return roaming;
+    }
 }
 
 function update(state) {
     return {
-        mouse: readMouse(),
-        position: state.movement.updatePosition(state.position, state.mouse),
-        movement: updateMovement(state.position),
+        mouse: updateMouse(state.mouse),
+        position: state.movement.updatePosition(state.movement, state.position, state.mouse),
+        movement: state.movement.update(state.position, state.mouse),
         legs: moveLegs(state.legs, state.position, state.movement)
     }
 
-    function readMouse() {
+    function updateMouse({x, y}) {
         return {
             x: mouseX,
-            y: mouseY
+            y: mouseY,
+            moved: mouseX !== x || mouseY !== y
         }
-    }
-
-    function updateMovement({distance}) {
-        if (distance >= 1)
-            return chasingMouse;
-        return standingStill;
     }
 
     function moveLegs(legs, mouse, movement) {
@@ -127,8 +166,8 @@ function render(state) {
     render(state);
     setTimeout(() => run(update(state)));
 })({
-    mouse:{x: 0, y: 0, delta: 0},
-    movement: chasingMouse,
+    mouse:{x: 0, y: 0, moved: false},
+    movement: roaming,
     position: {x: 0, y: 0, speed: 0, direction: 0, distance: 0},
     legs: new Array(LEGS_COUNT).fill({start:[], end: [], age: 0, life: 0})
 });

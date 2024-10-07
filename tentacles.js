@@ -7,6 +7,8 @@ const MAX_LIFE = 300;
 const MIN_LIFE = 100;
 const CATCH_DISTANCE = 2;
 const MAX_STAND_TIME = 250;
+const MAX_ROAM_TIME = 3000;
+const MAX_SLEEP_TIME = 1500;
 
 let mouseX = 0;
 let mouseY = 0;
@@ -38,6 +40,7 @@ const chasingMouse = (function (){
             x: x + Math.cos(direction) * speed,
             y: y + Math.sin(direction) * speed,
             speed: updateSpeed({x, y, speed, direction, distance}),
+            time: {},
             direction: updateDirection(x, y, mx, my, direction),
             distance: distanceBetween(x, y, mx, my)
         }),
@@ -80,12 +83,12 @@ const standingStill = {
     updatePosition: (movement, position, {x: mx, y: my}) => ({
         ...position,
         speed: 0,
-        standTime: typeof position.standTime === 'number' ? position.standTime + 1 : 0,
+        time: { stand: typeof position.time.stand === 'number' ? position.time.stand + 1 : 0 },
         distance: distanceBetween(position.x, position.y, mx, my)
     }),
     update: (position, mouse) => {
         if (mouse.moved && position.distance > CATCH_DISTANCE) return chasingMouse;
-        if (position.standTime > MAX_STAND_TIME) return roaming;
+        if (position.time.stand > MAX_STAND_TIME) return roaming;
         return standingStill;
     }
 }
@@ -96,18 +99,49 @@ const roaming = {
         Math.random() > 0.99
             ? Math.PI * 2 * Math.random()
             : (direction || 0),
-    updateSpeed: ({speed}) => speed < 1 ? speed + 0.001 : speed < 0.5 ? speed + 0.002 : speed < 1 ? speed + 0.003 : 1,
+    updateSpeed: ({speed}) => speed < 0.2 ? speed + 0.001 : speed < 0.5 ? speed + 0.002 : speed < 1 ? speed + 0.003 : 1,
     updatePosition: (movement, position, mouse) => {
         const base = chasingMouse.updatePosition(movement, position, mouse);
         return {
             ...base,
+            time: { roam: typeof position.time.roam === 'number' ? position.time.roam + 1 : 0 },
             x: base.x < 10 ? 10 : base.x > display.width - 10 ? display.width - 10 : base.x,
             y: base.y < 10 ? 10 : base.y > display.height - 10 ? display.height - 10 : base.y,
         }
     },
     update: (position, mouse) => {
-        if (mouse.moved) return chasingMouse;
+        if (mouse.moved && position.distance > CATCH_DISTANCE) return chasingMouse;
+        if (position.time.roam > MAX_ROAM_TIME) return fallingAsleep;
         return roaming;
+    }
+}
+
+const fallingAsleep = {
+    moveLeg: roaming.moveLeg,
+    updateDirection: roaming.updateDirection,
+    updateSpeed: ({speed}) => speed > 0.5 ? speed - 0.002 : speed > 0.25 ? speed - 0.002 : 0,
+    updatePosition: roaming.updatePosition,
+    update: (position, mouse) => {
+        if (mouse.moved && position.distance > CATCH_DISTANCE) return chasingMouse;
+        if (position.speed === 0) return sleeping;
+        return fallingAsleep;
+    }
+}
+
+const sleeping = {
+    moveLeg: standingStill.moveLeg,
+    updateDirection: standingStill.updateDirection,
+    updateSpeed: standingStill.updateSpeed,
+    updatePosition: (movement, position, mouse) => {
+        return {
+            ...standingStill.updatePosition(movement, position, mouse),
+            time: { sleep: typeof position.time.sleep === 'number' ? position.time.sleep + 1 : 0 },
+        }
+    },
+    update: (position, mouse) => {
+        if (mouse.moved && position.distance > CATCH_DISTANCE) return chasingMouse;
+        if (position.time.sleep > MAX_SLEEP_TIME) return roaming;
+        return sleeping;
     }
 }
 
@@ -168,6 +202,6 @@ function render(state) {
 })({
     mouse:{x: 0, y: 0, moved: false},
     movement: roaming,
-    position: {x: 0, y: 0, speed: 0, direction: 0, distance: 0},
+    position: {x: 0, y: 0, speed: 0, direction: 0, distance: 0, time: {}},
     legs: new Array(LEGS_COUNT).fill({start:[], end: [], age: 0, life: 0})
 });

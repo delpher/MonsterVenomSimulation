@@ -96,7 +96,7 @@ const roaming = {
         Math.random() > 0.99
             ? Math.PI * 2 * Math.random()
             : (direction || 0),
-    updateSpeed: ({speed}) => speed < 1 ? speed + 0.001 : speed < 2 ? speed + 0.002 : speed < 3 ? speed + 0.003 : 3,
+    updateSpeed: ({speed}) => speed < 1 ? speed + 0.001 : speed < 0.5 ? speed + 0.002 : speed < 1 ? speed + 0.003 : 1,
     updatePosition: (movement, position, mouse) => {
         const base = chasingMouse.updatePosition(movement, position, mouse);
         return {

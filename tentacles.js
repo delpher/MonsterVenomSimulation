@@ -33,11 +33,11 @@ const chasingMouse = (function (){
             end: age > life ? newRandomLegEnd(x, y, direction) : end
         }),
         updateDirection: (x, y, mx, my) => Math.atan2(my - y, mx - x),
-        updateSpeed: distance => distanceToSpeed(distance),
+        updateSpeed: position => distanceToSpeed(position.distance),
         updatePosition: ({updateDirection, updateSpeed}, {x, y, speed, direction, distance}, {x: mx, y: my}) => ({
             x: x + Math.cos(direction) * speed,
             y: y + Math.sin(direction) * speed,
-            speed: updateSpeed(distance),
+            speed: updateSpeed({x, y, speed, direction, distance}),
             direction: updateDirection(x, y, mx, my, direction),
             distance: distanceBetween(x, y, mx, my)
         }),
@@ -52,7 +52,7 @@ const chasingMouse = (function (){
         if (distance <= 50) return 1;
         if (distance <= 100) return 2;
         if (distance <= 300) return 3;
-        return 4;
+        return 5;
     }
 
     function newRandomLegEnd(x, y, direction) {
@@ -96,7 +96,7 @@ const roaming = {
         Math.random() > 0.99
             ? Math.PI * 2 * Math.random()
             : (direction || 0),
-    updateSpeed: () => 1,
+    updateSpeed: ({speed}) => speed < 1 ? speed + 0.001 : speed < 2 ? speed + 0.002 : speed < 3 ? speed + 0.003 : 3,
     updatePosition: (movement, position, mouse) => {
         const base = chasingMouse.updatePosition(movement, position, mouse);
         return {

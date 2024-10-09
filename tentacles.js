@@ -61,7 +61,7 @@ const chasingMouse = (function (){
             emotion: time.chase > TIME_TILL_TIRED ? '🥵' : '😃',
             x: x + Math.cos(direction) * speed,
             y: y + Math.sin(direction) * speed,
-            speed: updateSpeed({x, y, speed, direction, distance}),
+            speed: updateSpeed({x, y, speed, direction, distance}) * ((time.chase > TIME_TILL_TIRED) ? 0.4 : 1),
             time: { chase: typeof time.chase === 'number' ? time.chase + 1 : 0 },
             direction: updateDirection(x, y, mx, my, direction),
             distance: distanceBetween(x, y, mx, my)

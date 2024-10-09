@@ -10,6 +10,7 @@ const CATCH_DISTANCE = 2;
 const MAX_STAND_TIME = 250;
 const MAX_ROAM_TIME = 6000;
 const MAX_SLEEP_TIME = 1500;
+const TIME_TILL_TIRED = 1500;
 
 let mouseX = display.width / 2;
 let mouseY = display.height / 2;
@@ -56,12 +57,12 @@ const chasingMouse = (function (){
         }),
         updateDirection: (x, y, mx, my) => lineAngle(x, y,  mx,  my),
         updateSpeed: position => distanceToSpeed(position.distance),
-        updatePosition: ({updateDirection, updateSpeed}, {x, y, speed, direction, distance}, {x: mx, y: my}) => ({
-            emotion: '😃',
+        updatePosition: ({updateDirection, updateSpeed}, {x, y, speed, direction, distance, time}, {x: mx, y: my}) => ({
+            emotion: time.chase > TIME_TILL_TIRED ? '🥵' : '😃',
             x: x + Math.cos(direction) * speed,
             y: y + Math.sin(direction) * speed,
             speed: updateSpeed({x, y, speed, direction, distance}),
-            time: {},
+            time: { chase: typeof time.chase === 'number' ? time.chase + 1 : 0 },
             direction: updateDirection(x, y, mx, my, direction),
             distance: distanceBetween(x, y, mx, my)
         }),
